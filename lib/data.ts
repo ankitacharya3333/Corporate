@@ -440,3 +440,4 @@ export const FAQS_DATA = [
     answer: "Yes. Our systems engineering and cyber resilience practices strictly incorporate standards including SEC Rule 17a-4, EU DORA (Digital Operational Resilience Act), NIST 800-53, SOC2 Type II, and HIPAA compliance specifications."
   }
 ];
+

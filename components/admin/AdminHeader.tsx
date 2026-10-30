@@ -60,3 +60,4 @@ export default function AdminHeader({ onOpenMobileMenu }: AdminHeaderProps) {
     </header>
   );
 }
+

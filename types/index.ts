@@ -83,3 +83,4 @@ export interface CustomerUser {
   status: "active" | "invited" | "suspended";
   tier: "Enterprise" | "Advisory Partner" | "Standard";
 }
+
