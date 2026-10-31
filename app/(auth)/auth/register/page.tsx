@@ -1,15 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { customerRegisterSchema, CustomerRegisterData } from "@/lib/validations";
-import { UserPlus, Loader2, CheckCircle2, Shield } from "lucide-react";
+import { UserPlus, Loader2, CheckCircle2, Shield, AlertCircle } from "lucide-react";
 
 export default function CustomerRegisterPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const {
     register,
@@ -27,12 +30,34 @@ export default function CustomerRegisterPage() {
     },
   });
 
-  const onSubmit = (data: CustomerRegisterData) => {
+  const onSubmit = async (data: CustomerRegisterData) => {
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const resData = await res.json();
+
+      if (!res.ok) {
+        throw new Error(resData.error || "Failed to register corporate account.");
+      }
+
       setSuccess(true);
-    }, 1200);
+      setTimeout(() => {
+        router.push("/");
+        router.refresh();
+      }, 1500);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage(err.message || "An unexpected error occurred during account registration.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -46,24 +71,20 @@ export default function CustomerRegisterPage() {
         Create an authorized organization profile to collaborate on architecture blueprints and review SOWs.
       </p>
 
-      {/* Phase 1 Banner */}
-      <div className="mb-6 p-3 rounded bg-[#16243B] border border-[#233B5F] text-[11px] text-slate-300">
-        <span className="font-bold text-[#C59B27]">[Phase 1 Interface]:</span> Validates enterprise registration rules. Backend provisioning and email domain verification will occur in Phase 2.
-      </div>
+      {errorMessage && (
+        <div className="mb-4 p-3 rounded bg-red-950/70 border border-red-800 text-xs text-red-200 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
       {success ? (
         <div className="p-6 rounded bg-[#16243B] border border-[#C59B27]/40 text-center space-y-4">
           <CheckCircle2 className="w-10 h-10 text-[#C59B27] mx-auto" />
-          <h2 className="text-base font-semibold text-white">Registration Application Submitted</h2>
+          <h2 className="text-base font-semibold text-white">Account Created Successfully</h2>
           <p className="text-xs text-slate-300 leading-relaxed">
-            Your application has passed front-end validation. In Phase 2, account activation will verify your corporate domain via automated challenge email.
+            Your corporate profile has been stored in PostgreSQL. Session cookie has been generated. Redirecting to firm portal...
           </p>
-          <Link
-            href="/auth/login"
-            className="inline-block px-5 py-2 rounded bg-[#C59B27] text-[#0B1528] text-xs font-bold"
-          >
-            Proceed to Sign In
-          </Link>
         </div>
       ) : (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
@@ -180,7 +201,7 @@ export default function CustomerRegisterPage() {
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Processing Corporate Profile...</span>
+                <span>Storing Account & Hash in PostgreSQL...</span>
               </>
             ) : (
               <>
@@ -201,4 +222,3 @@ export default function CustomerRegisterPage() {
     </div>
   );
 }
-

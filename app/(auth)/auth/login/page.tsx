@@ -1,15 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { customerLoginSchema, CustomerLoginData } from "@/lib/validations";
-import { Lock, Eye, EyeOff, Loader2, CheckCircle, ShieldCheck } from "lucide-react";
+import { Lock, Eye, EyeOff, Loader2, CheckCircle, ShieldCheck, AlertCircle } from "lucide-react";
 
 export default function CustomerLoginPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const [status, setStatus] = useState<"idle" | "loading" | "success">("idle");
+  const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   const {
     register,
@@ -24,11 +28,34 @@ export default function CustomerLoginPage() {
     },
   });
 
-  const onSubmit = (data: CustomerLoginData) => {
-    setStatus("loading");
-    setTimeout(() => {
-      setStatus("success");
-    }, 1200);
+  const onSubmit = async (data: CustomerLoginData) => {
+    setLoading(true);
+    setAuthError(null);
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const resData = await res.json();
+
+      if (!res.ok) {
+        throw new Error(resData.error || "Authentication failed");
+      }
+
+      setSuccess(true);
+      setTimeout(() => {
+        router.push("/");
+        router.refresh();
+      }, 1000);
+    } catch (err: any) {
+      console.error(err);
+      setAuthError(err.message || "Invalid corporate credentials. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -42,24 +69,20 @@ export default function CustomerLoginPage() {
         Access confidential advisory deliverables, architecture repositories, and program telemetry.
       </p>
 
-      {/* Phase 1 Advisory Notice */}
-      <div className="mb-6 p-3 rounded bg-[#16243B] border border-[#233B5F] text-[11px] text-slate-300">
-        <span className="font-bold text-[#C59B27]">[Phase 1 Interface]:</span> Authentication validation active. Session management and SSO token issuance are slated for Phase 2.
-      </div>
+      {authError && (
+        <div className="mb-4 p-3 rounded bg-red-950/70 border border-red-800 text-xs text-red-200 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+          <span>{authError}</span>
+        </div>
+      )}
 
-      {status === "success" ? (
+      {success ? (
         <div className="p-6 rounded bg-[#16243B] border border-[#C59B27]/40 text-center space-y-3">
           <CheckCircle className="w-8 h-8 text-[#C59B27] mx-auto" />
-          <h2 className="text-sm font-semibold text-white">Client Identity Verified</h2>
+          <h2 className="text-sm font-semibold text-white">Identity Verified</h2>
           <p className="text-xs text-slate-300">
-            Phase 1 frontend session verified. Directing to client repository dashboard when Phase 2 authentication connects.
+            Secure HTTP-only session cookie established. Redirecting to firm portal...
           </p>
-          <button
-            onClick={() => setStatus("idle")}
-            className="text-xs text-[#C59B27] underline"
-          >
-            Reset Form
-          </button>
         </div>
       ) : (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
@@ -125,13 +148,13 @@ export default function CustomerLoginPage() {
 
           <button
             type="submit"
-            disabled={status === "loading"}
+            disabled={loading}
             className="w-full py-3 px-4 rounded bg-[#C59B27] hover:bg-[#B38A1F] text-[#0B1528] font-bold text-xs tracking-wider uppercase transition-colors flex items-center justify-center gap-2 mt-4"
           >
-            {status === "loading" ? (
+            {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Verifying Credentials...</span>
+                <span>Verifying Credentials in Database...</span>
               </>
             ) : (
               <>
@@ -152,4 +175,3 @@ export default function CustomerLoginPage() {
     </div>
   );
 }
-

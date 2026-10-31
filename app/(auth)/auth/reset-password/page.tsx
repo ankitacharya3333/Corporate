@@ -1,15 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { resetPasswordSchema, ResetPasswordData } from "@/lib/validations";
-import { KeyRound, Loader2, CheckCircle2, Shield } from "lucide-react";
+import { KeyRound, Loader2, CheckCircle2, Shield, AlertCircle } from "lucide-react";
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token") || "";
+
   const [loading, setLoading] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const {
     register,
@@ -23,12 +28,34 @@ export default function ResetPasswordPage() {
     },
   });
 
-  const onSubmit = (data: ResetPasswordData) => {
+  const onSubmit = async (data: ResetPasswordData) => {
+    if (!token) {
+      setErrorMessage("Missing password reset token in URL. Please use the link provided in your email.");
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, password: data.password, confirmPassword: data.confirmPassword }),
+      });
+
+      const resData = await res.json();
+      if (!res.ok) {
+        throw new Error(resData.error || "Failed to update password.");
+      }
+
       setCompleted(true);
-    }, 1200);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage(err.message || "An unexpected error occurred.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -42,17 +69,19 @@ export default function ResetPasswordPage() {
         Specify a compliant passphrase meeting corporate entropy standards.
       </p>
 
-      {/* Phase 1 Integration Banner */}
-      <div className="mb-6 p-3 rounded bg-[#16243B] border border-[#233B5F] text-[11px] text-slate-300">
-        <span className="font-bold text-[#C59B27]">[Phase 1 Interface]:</span> Validates token submission UI and entropy rules. Live token consumption connects in Phase 2.
-      </div>
+      {errorMessage && (
+        <div className="mb-4 p-3 rounded bg-red-950/70 border border-red-800 text-xs text-red-200 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
       {completed ? (
         <div className="p-6 rounded bg-[#16243B] border border-[#C59B27]/40 text-center space-y-4">
           <CheckCircle2 className="w-10 h-10 text-[#C59B27] mx-auto" />
-          <h2 className="text-sm font-semibold text-white">Password Updated Successfully</h2>
+          <h2 className="text-sm font-semibold text-white">Password Updated in Database</h2>
           <p className="text-xs text-slate-300">
-            Your new access credentials have satisfied all front-end complexity requirements.
+            Your new hash has been stored. You may now sign in to your account.
           </p>
           <Link
             href="/auth/login"
@@ -105,7 +134,7 @@ export default function ResetPasswordPage() {
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Enforcing Entropy...</span>
+                <span>Hashing & Updating Record...</span>
               </>
             ) : (
               <>
@@ -120,3 +149,10 @@ export default function ResetPasswordPage() {
   );
 }
 
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="text-white text-xs">Loading token...</div>}>
+      <ResetPasswordContent />
+    </Suspense>
+  );
+}

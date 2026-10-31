@@ -1,0 +1,196 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+}
+
+enum InquiryStatus {
+  NEW
+  IN_PROGRESS
+  CONTACTED
+  RESOLVED
+  ARCHIVED
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  RESCHEDULED
+  CANCELLED
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  BOUNCED
+}
+
+model User {
+  id                    String        @id @default(cuid())
+  name                  String
+  email                 String        @unique
+  passwordHash          String
+  role                  Role          @default(CUSTOMER)
+  company               String?
+  phone                 String?
+  accountStatus         UserStatus    @default(ACTIVE)
+  resetToken            String?       @unique
+  resetTokenExpires     DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  appointments          Appointment[]
+  inquiries             Inquiry[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Inquiry {
+  id              String        @id @default(cuid())
+  ticketNumber    String        @unique
+  name            String
+  email           String
+  phone           String?
+  organization    String?
+  subject         String
+  message         String
+  inquiryType     String        @default("General Advisory")
+  status          InquiryStatus @default(NEW)
+  userId          String?
+  user            User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  notifications   EmailNotification[]
+
+  @@index([status])
+  @@index([email])
+  @@index([createdAt])
+}
+
+model Appointment {
+  id                String            @id @default(cuid())
+  referenceNumber   String            @unique
+  customerName      String
+  email             String
+  phone             String?
+  organization      String?
+  selectedService   String
+  appointmentDate   String
+  appointmentTime   String
+  meetingType       String            @default("Video Conference (Teams/Zoom)")
+  message           String?
+  bookingStatus     AppointmentStatus @default(PENDING)
+  notes             String?
+  customerId        String?
+  customer          User?             @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  notifications     EmailNotification[]
+
+  @@unique([appointmentDate, appointmentTime, bookingStatus])
+  @@index([bookingStatus])
+  @@index([appointmentDate])
+  @@index([email])
+}
+
+model Service {
+  id                String    @id @default(cuid())
+  name              String
+  slug              String    @unique
+  shortDescription  String
+  description       String
+  category          String
+  capabilities      String[]  @default([])
+  deliverables      String[]  @default([])
+  leadTime          String    @default("6 to 12 weeks")
+  image             String?
+  status            String    @default("ACTIVE") // ACTIVE, DRAFT, ARCHIVED
+  published         Boolean   @default(true)
+  featured          Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([slug])
+  @@index([published])
+}
+
+model Project {
+  id                String    @id @default(cuid())
+  name              String
+  slug              String    @unique
+  category          String
+  timeline          String    @default("6-Month Program")
+  description       String
+  challenge         String?
+  approach          String?
+  outcomesJson      String?   // JSON representation of metrics: [{metric, label}]
+  tags              String[]  @default([])
+  featuredImage     String?
+  status            String    @default("ACTIVE")
+  published         Boolean   @default(true)
+  featured          Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([slug])
+  @@index([published])
+}
+
+model BlogPost {
+  id                String    @id @default(cuid())
+  title             String
+  slug              String    @unique
+  summary           String
+  content           String
+  category          String
+  readTime          String    @default("6 min read")
+  authorName        String    @default("Marcus Vance")
+  authorRole        String    @default("Chief Systems Architect")
+  featuredImage     String?
+  publicationStatus String    @default("PUBLISHED") // PUBLISHED, DRAFT
+  publishedDate     DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([slug])
+  @@index([publicationStatus])
+}
+
+model EmailNotification {
+  id                String          @id @default(cuid())
+  notificationType  String          // INQUIRY_ADMIN, INQUIRY_CLIENT, APPOINTMENT_REQUEST, APPOINTMENT_APPROVED, etc.
+  recipient         String
+  subject           String
+  deliveryStatus    DeliveryStatus  @default(PENDING)
+  providerMessageId String?
+  errorMessage      String?
+  inquiryId         String?
+  inquiry           Inquiry?        @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  appointmentId     String?
+  appointment       Appointment?    @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([deliveryStatus])
+  @@index([recipient])
+}
+

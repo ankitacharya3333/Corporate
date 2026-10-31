@@ -9,7 +9,8 @@ import { Send, CheckCircle2, AlertCircle, Loader2, Shield } from "lucide-react";
 
 export default function ContactForm() {
   const [submissionState, setSubmissionState] = useState<"idle" | "submitting" | "success" | "error">("idle");
-  const [submittedData, setSubmittedData] = useState<ContactFormData | null>(null);
+  const [submittedTicket, setSubmittedTicket] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const {
     register,
@@ -31,13 +32,29 @@ export default function ContactForm() {
 
   const onSubmit = async (data: ContactFormData) => {
     setSubmissionState("submitting");
+    setErrorMessage(null);
 
-    // Phase 1: Simulate network verification with realistic state management
-    setTimeout(() => {
-      setSubmittedData(data);
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const resData = await res.json();
+
+      if (!res.ok) {
+        throw new Error(resData.error || "Failed to submit inquiry");
+      }
+
+      setSubmittedTicket(resData.ticketNumber);
       setSubmissionState("success");
       reset();
-    }, 1200);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage(err.message || "An unexpected error occurred while processing your submission.");
+      setSubmissionState("error");
+    }
   };
 
   return (
@@ -51,30 +68,33 @@ export default function ContactForm() {
         Submissions are routed directly to practice partners. Handled under standard mutual non-disclosure protocols.
       </p>
 
-      {/* Phase 1 Integration Banner */}
-      <div className="mb-6 p-3 rounded bg-[#FAF8F5] border border-[#CBD5E1] text-[11px] text-[#475569] flex items-start gap-2">
-        <span className="font-bold text-[#0B1528] shrink-0">[Phase 1 Interface]:</span>
-        <span>Validates schema adherence & mock-generates an internal review dispatch ticket awaiting Phase 2 persistent backend integration.</span>
-      </div>
+      {errorMessage && (
+        <div className="mb-6 p-4 rounded bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
-      {submissionState === "success" && submittedData ? (
+      {submissionState === "success" && submittedTicket ? (
         <div className="p-6 rounded bg-[#F0FDF4] border border-[#86EFAC] text-[#14532D] space-y-4">
           <div className="flex items-center gap-3">
             <CheckCircle2 className="w-6 h-6 text-[#16A34A] shrink-0" />
             <div>
-              <h3 className="font-bold text-sm">Inquiry Validation Successful</h3>
+              <h3 className="font-bold text-sm">Inquiry Successfully Registered</h3>
               <p className="text-xs text-[#15803D]">
-                Your communication has been formally structured and validated.
+                Your payload has been saved to the PostgreSQL database and dispatched to the practice leadership.
               </p>
             </div>
           </div>
           <div className="text-xs bg-white/80 p-3 rounded border border-[#BBF7D0] space-y-1">
-            <div><strong>Sender:</strong> {submittedData.fullName} ({submittedData.organization})</div>
-            <div><strong>Routing:</strong> {submittedData.serviceInterest}</div>
-            <div><strong>Assigned Channel:</strong> Practice Lead Direct Dispatch (Phase 2 Queued)</div>
+            <div><strong>Tracking Reference:</strong> <span className="font-mono font-bold text-[#0B1528]">{submittedTicket}</span></div>
+            <div><strong>Dispatch Notification:</strong> Queued for partner review in New York & Zurich</div>
           </div>
           <button
-            onClick={() => setSubmissionState("idle")}
+            onClick={() => {
+              setSubmissionState("idle");
+              setSubmittedTicket(null);
+            }}
             className="text-xs underline font-semibold text-[#166534] hover:text-[#14532D]"
           >
             Submit Another Inquiry
@@ -214,7 +234,7 @@ export default function ContactForm() {
             {submissionState === "submitting" ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-[#C59B27]" />
-                <span>Transmitting Encrypted Payload...</span>
+                <span>Saving to Database & Notifying Partners...</span>
               </>
             ) : (
               <>
@@ -228,4 +248,3 @@ export default function ContactForm() {
     </div>
   );
 }
-

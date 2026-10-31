@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { adminLoginSchema, AdminLoginData } from "@/lib/validations";
-import { ShieldAlert, Lock, Eye, EyeOff, Loader2, ArrowLeft, Terminal } from "lucide-react";
+import { ShieldAlert, Lock, Eye, EyeOff, Loader2, ArrowLeft, Terminal, AlertCircle } from "lucide-react";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -21,21 +21,37 @@ export default function AdminLoginPage() {
   } = useForm<AdminLoginData>({
     resolver: zodResolver(adminLoginSchema),
     defaultValues: {
-      email: "principal.admin@vanguardmeridian.internal",
+      email: "rmnrr333@gmail.com",
       password: "",
     },
   });
 
-  const onSubmit = (data: AdminLoginData) => {
+  const onSubmit = async (data: AdminLoginData) => {
     setLoading(true);
     setAuthError(null);
 
-    // Phase 1: Validate input, allow mock sign-in into admin interface
-    setTimeout(() => {
-      setLoading(false);
-      // Navigates directly into the admin dashboard UI
+    try {
+      const res = await fetch("/api/auth/admin-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const resData = await res.json();
+
+      if (!res.ok) {
+        throw new Error(resData.error || "Authentication failed");
+      }
+
+      // Successful verified session cookie set
       router.push("/admin");
-    }, 1000);
+      router.refresh();
+    } catch (err: any) {
+      console.error(err);
+      setAuthError(err.message || "Invalid administrative credentials or unauthorized role.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -66,22 +82,13 @@ export default function AdminLoginPage() {
           </div>
           <h1 className="text-2xl font-serif text-white mb-2">Internal Admin Console</h1>
           <p className="text-xs text-slate-400 mb-6">
-            Authorized personnel only. All access requests are cryptographically audited and recorded.
+            Authorized personnel only. Authenticates against the PostgreSQL database with server-side HTTP-only session cookies.
           </p>
 
-          <div className="mb-6 p-3 rounded bg-[#16243B] border border-[#233B5F] text-[11px] text-slate-300 space-y-1">
-            <div className="flex items-center gap-1.5 font-bold text-[#C59B27]">
-              <Terminal className="w-3.5 h-3.5" />
-              <span>Phase 1 UI Sandbox:</span>
-            </div>
-            <div>
-              Enter any authorized format credentials to access the Administrative Dashboard interface. Real cryptographic session enforcement and multi-factor hardware keys attach in Phase 2.
-            </div>
-          </div>
-
           {authError && (
-            <div className="mb-4 p-3 rounded bg-red-950/60 border border-red-800 text-xs text-red-300">
-              {authError}
+            <div className="mb-4 p-3 rounded bg-red-950/70 border border-red-800 text-xs text-red-200 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+              <span>{authError}</span>
             </div>
           )}
 
@@ -93,7 +100,7 @@ export default function AdminLoginPage() {
               <input
                 type="email"
                 {...register("email")}
-                placeholder="principal.admin@vanguardmeridian.internal"
+                placeholder="rmnrr333@gmail.com"
                 className={`w-full px-3.5 py-2.5 text-xs rounded border bg-[#080E1B] text-white focus:outline-none focus:border-[#C59B27] ${
                   errors.email ? "border-red-500" : "border-[#1E3352]"
                 }`}
@@ -106,9 +113,9 @@ export default function AdminLoginPage() {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-xs font-medium text-slate-300">
-                  Administrative Key / Passphrase
+                  Administrative Passphrase
                 </label>
-                <span className="text-[10px] text-slate-400">Phase 2: Hardware FIDO2</span>
+                <span className="text-[10px] text-slate-400">BCrypt + JOSE Verified</span>
               </div>
               <div className="relative">
                 <input
@@ -140,28 +147,27 @@ export default function AdminLoginPage() {
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Verifying Authorization...</span>
+                  <span>Verifying Credentials & Session...</span>
                 </>
               ) : (
                 <>
                   <Lock className="w-4 h-4" />
-                  <span>Enter Admin Console</span>
+                  <span>Authenticate Session</span>
                 </>
               )}
             </button>
           </form>
 
           <div className="mt-8 pt-4 border-t border-[#1E3352] text-center text-[11px] text-slate-400">
-            Internal Systems Administration &bull; No Public Registration Available
+            Internal Systems Administration &bull; No Public Registration Permitted
           </div>
         </div>
       </main>
 
       {/* Footer */}
       <footer className="border-t border-[#14233A] bg-[#050A14] py-3 px-6 text-center text-[11px] text-slate-400">
-        Confidential Management Subsystem &bull; Vanguard Meridian Advisory &bull; Unauthorized Entry Subject to Federal Prosecution
+        Confidential Management Subsystem &bull; Vanguard Meridian Advisory &bull; Unauthorized Entry Subject to Prosecution
       </footer>
     </div>
   );
 }
-

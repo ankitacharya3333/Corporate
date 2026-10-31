@@ -1,14 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BLOG_POSTS } from "@/lib/data";
-import { BookOpen, ArrowRight, User } from "lucide-react";
+import prisma from "@/lib/prisma";
+import { ArrowRight } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Engineering Insights & Whitepapers",
   description: "Read technical perspectives and architecture treatises authored by Vanguard Meridian practice leads on distributed resilience and zero-trust engineering.",
 };
 
-export default function BlogPage() {
+export default async function BlogPage() {
+  const posts = await prisma.blogPost.findMany({
+    where: { publicationStatus: "PUBLISHED" },
+    orderBy: { publishedDate: "desc" },
+  });
+
   return (
     <div className="bg-[#FAF8F5]">
       {/* Header */}
@@ -31,7 +37,7 @@ export default function BlogPage() {
       {/* Posts */}
       <section className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {BLOG_POSTS.map((post) => (
+          {posts.map((post) => (
             <article
               key={post.id}
               className="bg-white rounded border border-[#E2E8F0] p-7 flex flex-col justify-between hover:border-[#1E3352] transition-colors shadow-xs"
@@ -57,8 +63,8 @@ export default function BlogPage() {
 
               <div className="pt-4 border-t border-[#E2E8F0] flex items-center justify-between text-xs">
                 <div>
-                  <div className="font-semibold text-[#0B1528]">{post.author.name}</div>
-                  <div className="text-[10px] text-[#64748B]">{post.author.role}</div>
+                  <div className="font-semibold text-[#0B1528]">{post.authorName}</div>
+                  <div className="text-[10px] text-[#64748B]">{post.authorRole}</div>
                 </div>
                 <Link
                   href={`/blog/${post.slug}`}
@@ -75,4 +81,3 @@ export default function BlogPage() {
     </div>
   );
 }
-

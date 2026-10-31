@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { forgotPasswordSchema, ForgotPasswordData } from "@/lib/validations";
-import { Mail, Loader2, ArrowLeft, CheckCircle2, Shield } from "lucide-react";
+import { Mail, Loader2, ArrowLeft, CheckCircle2, Shield, AlertCircle } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const {
     register,
@@ -20,12 +21,28 @@ export default function ForgotPasswordPage() {
     defaultValues: { email: "" },
   });
 
-  const onSubmit = (data: ForgotPasswordData) => {
+  const onSubmit = async (data: ForgotPasswordData) => {
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (!res.ok) {
+        throw new Error("Unable to process request at this time.");
+      }
+
       setSubmittedEmail(data.email);
-    }, 1200);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage(err.message || "An unexpected error occurred.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -36,27 +53,29 @@ export default function ForgotPasswordPage() {
       </div>
       <h1 className="text-2xl font-serif text-white mb-2">Reset Password</h1>
       <p className="text-xs text-slate-400 mb-6">
-        Enter your authorized corporate email to receive cryptographic password reset instructions.
+        Enter your authorized corporate email to receive a single-use cryptographic reset link.
       </p>
 
-      {/* Phase 1 Integration Banner */}
-      <div className="mb-6 p-3 rounded bg-[#16243B] border border-[#233B5F] text-[11px] text-slate-300">
-        <span className="font-bold text-[#C59B27]">[Phase 1 Interface]:</span> Validates email formatting and simulates delivery workflow. Live SMTP and expiring tokens will be connected in Phase 2.
-      </div>
+      {errorMessage && (
+        <div className="mb-4 p-3 rounded bg-red-950/70 border border-red-800 text-xs text-red-200 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
       {submittedEmail ? (
         <div className="p-6 rounded bg-[#16243B] border border-[#C59B27]/40 text-center space-y-4">
           <CheckCircle2 className="w-8 h-8 text-[#C59B27] mx-auto" />
-          <h2 className="text-sm font-semibold text-white">Recovery Token Queued</h2>
+          <h2 className="text-sm font-semibold text-white">Verification Link Dispatched</h2>
           <p className="text-xs text-slate-300">
-            If <strong className="text-white">{submittedEmail}</strong> matches an active account, verification instructions will be transmitted.
+            If <strong className="text-white">{submittedEmail}</strong> matches an active account, secure password reset instructions have been emailed to that address.
           </p>
           <div className="pt-2">
             <Link
-              href="/auth/reset-password"
+              href="/auth/login"
               className="text-xs text-[#C59B27] underline block font-medium"
             >
-              [Demo Flow]: Test Password Reset Form &rarr;
+              Return to Client Sign In
             </Link>
           </div>
         </div>
@@ -87,7 +106,7 @@ export default function ForgotPasswordPage() {
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Checking Registry...</span>
+                <span>Checking Registry & Generating Token...</span>
               </>
             ) : (
               <>
@@ -99,7 +118,7 @@ export default function ForgotPasswordPage() {
 
           <div className="pt-4 text-center text-xs text-slate-400 border-t border-[#1E3352]">
             <Link href="/auth/login" className="hover:text-white inline-flex items-center gap-1">
-              <ArrowLeft className="w-3 h-3" />
+              <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back to Client Sign In</span>
             </Link>
           </div>
@@ -108,4 +127,3 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
-

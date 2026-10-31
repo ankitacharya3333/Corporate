@@ -5,11 +5,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { appointmentFormSchema, AppointmentFormData } from "@/lib/validations";
 import { SERVICES_DATA } from "@/lib/data";
-import { Calendar, Clock, Video, Building2, Phone, CheckCircle2, Loader2, Shield } from "lucide-react";
+import { Calendar, Clock, CheckCircle2, Loader2, Shield, AlertCircle } from "lucide-react";
 
 export default function AppointmentPage() {
-  const [submitted, setSubmitted] = useState<AppointmentFormData | null>(null);
+  const [submittedReference, setSubmittedReference] = useState<string | null>(null);
+  const [submittedData, setSubmittedData] = useState<AppointmentFormData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const {
     register,
@@ -30,13 +32,32 @@ export default function AppointmentPage() {
     },
   });
 
-  const onSubmit = (data: AppointmentFormData) => {
+  const onSubmit = async (data: AppointmentFormData) => {
     setLoading(true);
-    setTimeout(() => {
-      setSubmitted(data);
-      setLoading(false);
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch("/api/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const resData = await res.json();
+
+      if (!res.ok) {
+        throw new Error(resData.error || "Failed to book consultation slot.");
+      }
+
+      setSubmittedReference(resData.referenceNumber);
+      setSubmittedData(data);
       reset();
-    }, 1200);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage(err.message || "An unexpected error occurred while scheduling your consultation.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -62,37 +83,43 @@ export default function AppointmentPage() {
       <section className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
           <div className="lg:col-span-8 bg-white p-8 sm:p-10 rounded border border-[#E2E8F0] shadow-sm">
-            <div className="mb-6 p-3 rounded bg-[#FAF8F5] border border-[#CBD5E1] text-[11px] text-[#475569] flex items-start gap-2">
-              <span className="font-bold text-[#0B1528] shrink-0">[Phase 1 Interface]:</span>
-              <span>Validates corporate schedule requests and simulates administrative booking dispatch awaiting calendar sync in Phase 2.</span>
-            </div>
+            {errorMessage && (
+              <div className="mb-6 p-4 rounded bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
 
-            {submitted ? (
+            {submittedReference && submittedData ? (
               <div className="p-8 rounded bg-[#F0FDF4] border border-[#86EFAC] text-[#14532D] space-y-4">
                 <div className="flex items-center gap-3">
                   <CheckCircle2 className="w-8 h-8 text-[#16A34A] shrink-0" />
                   <div>
-                    <h2 className="text-lg font-serif font-bold">Advisory Request Registered</h2>
+                    <h2 className="text-lg font-serif font-bold">Consultation Slot Held Successfully</h2>
                     <p className="text-xs text-[#15803D]">
-                      Reference booking slot held for partner review.
+                      Stored in database with status: <strong>PENDING ADMINISTRATIVE CONFIRMATION</strong>.
                     </p>
                   </div>
                 </div>
 
                 <div className="bg-white/90 p-4 rounded border border-[#BBF7D0] text-xs space-y-2 text-[#0B1528]">
-                  <div><strong>Client:</strong> {submitted.fullName} ({submitted.company})</div>
-                  <div><strong>Email:</strong> {submitted.workEmail}</div>
-                  <div><strong>Practice Area:</strong> {submitted.serviceInterest}</div>
-                  <div><strong>Requested Date & Window:</strong> {submitted.preferredDate} at {submitted.preferredTime}</div>
-                  <div><strong>Session Format:</strong> {submitted.meetingType}</div>
+                  <div><strong>Booking Reference:</strong> <span className="font-mono font-bold text-[#0B1528]">{submittedReference}</span></div>
+                  <div><strong>Client:</strong> {submittedData.fullName} ({submittedData.company})</div>
+                  <div><strong>Email:</strong> {submittedData.workEmail}</div>
+                  <div><strong>Practice Area:</strong> {submittedData.serviceInterest}</div>
+                  <div><strong>Requested Date & Window:</strong> {submittedData.preferredDate} at {submittedData.preferredTime}</div>
+                  <div><strong>Session Format:</strong> {submittedData.meetingType}</div>
                 </div>
 
                 <div className="text-xs text-slate-600">
-                  During Phase 2, this will issue automated ICS calendar holds and mutual NDA counter-signatures.
+                  A notification has been dispatched to the practice advisory board (<span className="font-mono text-slate-800">rmnrr333@gmail.com</span>) and a confirmation email was delivered to your address.
                 </div>
 
                 <button
-                  onClick={() => setSubmitted(null)}
+                  onClick={() => {
+                    setSubmittedReference(null);
+                    setSubmittedData(null);
+                  }}
                   className="mt-2 text-xs font-semibold text-[#166534] underline hover:text-[#14532D]"
                 >
                   Schedule Another Consultation
@@ -271,7 +298,7 @@ export default function AppointmentPage() {
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Transmitting Consultation Request...</span>
+                      <span>Saving Reservation & Dispatching Notifications...</span>
                     </>
                   ) : (
                     <>
@@ -297,7 +324,7 @@ export default function AppointmentPage() {
               <div className="border-t border-[#1E3352] pt-3 text-[11px] text-slate-400 space-y-1.5">
                 <div>&bull; Duration: 45 minutes focused executive review</div>
                 <div>&bull; Deliverable: Initial scoping memo & assessment fit</div>
-                <div>&bull; No marketing pitches or junior staffing</div>
+                <div>&bull; Status updates delivered directly via email</div>
               </div>
             </div>
 
@@ -316,4 +343,3 @@ export default function AppointmentPage() {
     </div>
   );
 }
-

@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SERVICES_DATA } from "@/lib/data";
-import { CheckCircle2, ArrowRight, ShieldCheck, Compass, FileCheck } from "lucide-react";
+import prisma from "@/lib/prisma";
+import { CheckCircle2, ArrowRight, FileCheck } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Advisory Practices & Systems Engineering",
   description: "Explore Vanguard Meridian's specialized technical practices: enterprise cloud topology, cyber resilience, data intelligence, and legacy modernization.",
 };
 
-export default function ServicesPage() {
+export default async function ServicesPage() {
+  const services = await prisma.service.findMany({
+    where: { published: true },
+    orderBy: { createdAt: "asc" },
+  });
+
   return (
     <div className="bg-[#FAF8F5]">
       {/* Header */}
@@ -31,7 +36,7 @@ export default function ServicesPage() {
       {/* Services List */}
       <section className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="space-y-10">
-          {SERVICES_DATA.map((service, index) => (
+          {services.map((service) => (
             <div
               key={service.id}
               className="bg-white rounded border border-[#E2E8F0] p-8 lg:p-10 shadow-xs hover:border-[#C59B27] transition-colors"
@@ -47,12 +52,12 @@ export default function ServicesPage() {
 
                   <h2 className="text-2xl font-serif text-[#0B1528]">
                     <Link href={`/services/${service.slug}`} className="hover:text-[#8A6D1C] transition-colors">
-                      {service.title}
+                      {service.name}
                     </Link>
                   </h2>
 
                   <p className="text-xs sm:text-sm text-[#475569] leading-relaxed">
-                    {service.fullDescription}
+                    {service.description}
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
@@ -102,45 +107,6 @@ export default function ServicesPage() {
           ))}
         </div>
       </section>
-
-      {/* Engagement Scoping Framework */}
-      <section className="py-16 bg-[#F4F1EA] border-t border-[#E2E8F0]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-2xl mb-10">
-            <h3 className="text-2xl font-serif text-[#0B1528]">How we structure client engagements</h3>
-            <p className="text-xs sm:text-sm text-[#475569] mt-2">
-              Every practice engagement is scoped with measurable checkpoints, zero vendor lock-in, and clear bilateral governance.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded border border-[#E2E8F0]">
-              <div className="text-xs font-bold text-[#8A6D1C] uppercase mb-1">Model A</div>
-              <h4 className="text-base font-semibold text-[#0B1528] mb-2">Diagnostic & Architectural Audit</h4>
-              <p className="text-xs text-[#64748B] leading-relaxed">
-                A bounded 4 to 8 week forensic assessment of existing systems, regulatory readiness gaps, and technical risk vectors, concluding in a board-ready report and target blueprint.
-              </p>
-            </div>
-
-            <div className="bg-white p-6 rounded border border-[#E2E8F0]">
-              <div className="text-xs font-bold text-[#8A6D1C] uppercase mb-1">Model B</div>
-              <h4 className="text-base font-semibold text-[#0B1528] mb-2">Embedded Architectural Advisory</h4>
-              <p className="text-xs text-[#64748B] leading-relaxed">
-                Principal architects embed with executive leadership and platform engineering squads to oversee high-risk migrations, review PRs, and enforce architectural consistency.
-              </p>
-            </div>
-
-            <div className="bg-white p-6 rounded border border-[#E2E8F0]">
-              <div className="text-xs font-bold text-[#8A6D1C] uppercase mb-1">Model C</div>
-              <h4 className="text-base font-semibold text-[#0B1528] mb-2">Crisis & Regulatory Remediation</h4>
-              <p className="text-xs text-[#64748B] leading-relaxed">
-                Emergency mobilization for institutions experiencing critical outages, regulatory notices, or impending audit deadlines requiring rapid technical stabilization.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
-
