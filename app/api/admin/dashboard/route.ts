@@ -60,3 +60,4 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch dashboard metrics" }, { status: 500 });
   }
 }
+

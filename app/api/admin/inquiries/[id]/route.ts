@@ -47,3 +47,4 @@ export async function DELETE(
     return NextResponse.json({ error: "Failed to delete inquiry" }, { status: 500 });
   }
 }
+
