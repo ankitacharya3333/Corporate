@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { Role } from "@prisma/client";
+import prisma from "@/lib/prisma";
 
 const secretKey = process.env.AUTH_SECRET || "fallback-secret-minimum-32-chars-long-security-key";
 const encodedKey = new TextEncoder().encode(secretKey);
@@ -55,6 +56,41 @@ export async function getCurrentSession(): Promise<SessionPayload | null> {
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
   return verifySessionToken(token);
+}
+
+// Require authenticated customer session guard (verifies existence and ACTIVE status in database)
+export async function requireCustomerSession(): Promise<{
+  session: SessionPayload;
+  user: { id: string; name: string; email: string; company: string | null; phone: string | null; accountStatus: string; role: Role };
+}> {
+  const session = await getCurrentSession();
+  if (!session) {
+    throw new Error("UNAUTHENTICATED");
+  }
+
+  // Double-check database record for account status and eligibility
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      company: true,
+      phone: true,
+      accountStatus: true,
+      role: true,
+    },
+  });
+
+  if (!user) {
+    throw new Error("UNAUTHENTICATED");
+  }
+
+  if (user.accountStatus === "SUSPENDED") {
+    throw new Error("ACCOUNT_SUSPENDED");
+  }
+
+  return { session, user };
 }
 
 // Require authenticated administrator guard

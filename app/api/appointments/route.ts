@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { appointmentFormSchema } from "@/lib/validations";
 import { sendAppointmentAdminNotification, sendAppointmentClientConfirmation } from "@/lib/email";
+import { requireCustomerSession } from "@/lib/auth";
 
 // Availability check: returns already confirmed slots for a given date
 export async function GET(req: NextRequest) {
@@ -35,6 +36,24 @@ export async function GET(req: NextRequest) {
 // Request Consultation Slot
 export async function POST(req: NextRequest) {
   try {
+    // 1. Enforce authentication and account status server-side
+    let authUser;
+    try {
+      const authResult = await requireCustomerSession();
+      authUser = authResult.user;
+    } catch (authError: any) {
+      if (authError.message === "ACCOUNT_SUSPENDED") {
+        return NextResponse.json(
+          { error: "Your corporate account is suspended. Please contact firm administration." },
+          { status: 403 }
+        );
+      }
+      return NextResponse.json(
+        { error: "Authentication required. Please sign in to book an executive consultation." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const validated = appointmentFormSchema.safeParse(body);
 
@@ -77,7 +96,7 @@ export async function POST(req: NextRequest) {
     const count = await prisma.appointment.count();
     const referenceNumber = `VM-APT-${String(count + 4905).padStart(4, "0")}`;
 
-    // Store appointment in PostgreSQL
+    // Store appointment in PostgreSQL associated with customer ID
     const appointment = await prisma.appointment.create({
       data: {
         referenceNumber,
@@ -90,6 +109,7 @@ export async function POST(req: NextRequest) {
         appointmentTime: preferredTime,
         message: projectScopeBrief,
         bookingStatus: "PENDING",
+        customerId: authUser.id,
       },
     });
 

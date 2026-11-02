@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { customerLoginSchema, CustomerLoginData } from "@/lib/validations";
-import { Lock, Eye, EyeOff, Loader2, CheckCircle, ShieldCheck, AlertCircle } from "lucide-react";
+import { Lock, Eye, EyeOff, Loader2, CheckCircle, ShieldCheck, AlertCircle, Info } from "lucide-react";
 
-export default function CustomerLoginPage() {
+function CustomerLoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || searchParams.get("from") || "/";
+  const requiredMsg = searchParams.get("required") === "1";
+
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -47,7 +51,7 @@ export default function CustomerLoginPage() {
 
       setSuccess(true);
       setTimeout(() => {
-        router.push("/");
+        router.push(callbackUrl);
         router.refresh();
       }, 1000);
     } catch (err: any) {
@@ -69,6 +73,15 @@ export default function CustomerLoginPage() {
         Access confidential advisory deliverables, architecture repositories, and program telemetry.
       </p>
 
+      {requiredMsg && (
+        <div className="mb-5 p-3.5 rounded bg-[#16243B] border border-[#C59B27]/50 text-xs text-slate-200 flex items-start gap-2.5">
+          <Info className="w-4 h-4 text-[#C59B27] shrink-0 mt-0.5" />
+          <div>
+            <span className="font-semibold text-white">Authentication Required:</span> Please sign in or register to submit contact inquiries and book executive consultations. You will return to your destination automatically.
+          </div>
+        </div>
+      )}
+
       {authError && (
         <div className="mb-4 p-3 rounded bg-red-950/70 border border-red-800 text-xs text-red-200 flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
@@ -81,7 +94,7 @@ export default function CustomerLoginPage() {
           <CheckCircle className="w-8 h-8 text-[#C59B27] mx-auto" />
           <h2 className="text-sm font-semibold text-white">Identity Verified</h2>
           <p className="text-xs text-slate-300">
-            Secure HTTP-only session cookie established. Redirecting to firm portal...
+            Secure HTTP-only session cookie established. Redirecting to your destination...
           </p>
         </div>
       ) : (
@@ -166,12 +179,23 @@ export default function CustomerLoginPage() {
 
           <div className="pt-4 text-center text-xs text-slate-400 border-t border-[#1E3352]">
             Need new client credentials?{" "}
-            <Link href="/auth/register" className="text-[#C59B27] font-semibold hover:underline">
+            <Link
+              href={callbackUrl ? `/auth/register?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/auth/register"}
+              className="text-[#C59B27] font-semibold hover:underline"
+            >
               Register corporate account
             </Link>
           </div>
         </form>
       )}
     </div>
+  );
+}
+
+export default function CustomerLoginPage() {
+  return (
+    <Suspense fallback={<div className="text-white text-xs">Loading authentication enclave...</div>}>
+      <CustomerLoginForm />
+    </Suspense>
   );
 }

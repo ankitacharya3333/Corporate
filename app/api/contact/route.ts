@@ -2,9 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { contactFormSchema } from "@/lib/validations";
 import { sendInquiryAdminNotification, sendInquiryClientConfirmation } from "@/lib/email";
+import { requireCustomerSession } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
+    // 1. Enforce authentication and account status server-side
+    let authUser;
+    try {
+      const authResult = await requireCustomerSession();
+      authUser = authResult.user;
+    } catch (authError: any) {
+      if (authError.message === "ACCOUNT_SUSPENDED") {
+        return NextResponse.json(
+          { error: "Your corporate account is suspended. Please contact firm administration." },
+          { status: 403 }
+        );
+      }
+      return NextResponse.json(
+        { error: "Authentication required. Please sign in to submit a contact inquiry." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const validated = contactFormSchema.safeParse(body);
 
@@ -21,7 +40,7 @@ export async function POST(req: NextRequest) {
     const count = await prisma.inquiry.count();
     const ticketNumber = `INQ-${new Date().getFullYear()}-${String(count + 8816).padStart(4, "0")}`;
 
-    // 1. Atomically store customer submission in PostgreSQL first
+    // 2. Atomically store customer submission in PostgreSQL associated with customer ID
     const inquiry = await prisma.inquiry.create({
       data: {
         ticketNumber,
@@ -33,15 +52,20 @@ export async function POST(req: NextRequest) {
         message,
         inquiryType: serviceInterest,
         status: "NEW",
+        userId: authUser.id,
       },
     });
 
     // 2. Dispatch notifications to business (rmnrr333@gmail.com) and client
-    await Promise.allSettled([
-      sendInquiryAdminNotification(inquiry),
-      sendInquiryClientConfirmation(inquiry),
-    ]);
+   const emailResults = await Promise.allSettled([
+  sendInquiryAdminNotification(inquiry),
+  sendInquiryClientConfirmation(inquiry),
+]);
 
+console.log("[CONTACT EMAIL DIAGNOSTICS]", {
+  admin: emailResults[0],
+  client: emailResults[1],
+});
     return NextResponse.json(
       {
         success: true,

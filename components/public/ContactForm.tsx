@@ -1,21 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { contactFormSchema, ContactFormData } from "@/lib/validations";
 import { SERVICES_DATA } from "@/lib/data";
-import { Send, CheckCircle2, AlertCircle, Loader2, Shield } from "lucide-react";
+import { Send, CheckCircle2, AlertCircle, Loader2, Shield, Lock } from "lucide-react";
 
 export default function ContactForm() {
+  const router = useRouter();
   const [submissionState, setSubmissionState] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [submittedTicket, setSubmittedTicket] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<ContactFormData>({
     resolver: zodResolver(contactFormSchema),
@@ -30,7 +35,38 @@ export default function ContactForm() {
     },
   });
 
+  // Check current session to pre-fill known corporate attributes if logged in
+  useEffect(() => {
+    let isMounted = true;
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!isMounted) return;
+        if (data.authenticated && data.user) {
+          setCurrentUser(data.user);
+          if (data.user.name) setValue("fullName", data.user.name);
+          if (data.user.email) setValue("email", data.user.email);
+          if (data.user.company) setValue("organization", data.user.company);
+          if (data.user.phone) setValue("phone", data.user.phone);
+        }
+      })
+      .catch((err) => console.error("Session check error:", err))
+      .finally(() => {
+        if (isMounted) setCheckingAuth(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [setValue]);
+
   const onSubmit = async (data: ContactFormData) => {
+    // If not authenticated, redirect to login page with preserved destination
+    if (!currentUser) {
+      router.push(`/auth/login?callbackUrl=${encodeURIComponent("/contact")}&required=1`);
+      return;
+    }
+
     setSubmissionState("submitting");
     setErrorMessage(null);
 
@@ -42,6 +78,11 @@ export default function ContactForm() {
       });
 
       const resData = await res.json();
+
+      if (res.status === 401) {
+        router.push(`/auth/login?callbackUrl=${encodeURIComponent("/contact")}&required=1`);
+        return;
+      }
 
       if (!res.ok) {
         throw new Error(resData.error || "Failed to submit inquiry");
@@ -64,9 +105,27 @@ export default function ContactForm() {
         Confidential Inquiry Gateway
       </div>
       <h2 className="text-2xl font-serif text-[#0B1528] mb-2">Direct Practice Inquiry</h2>
-      <p className="text-xs text-[#64748B] mb-8">
+      <p className="text-xs text-[#64748B] mb-6">
         Submissions are routed directly to practice partners. Handled under standard mutual non-disclosure protocols.
       </p>
+
+      {!checkingAuth && !currentUser && (
+        <div className="mb-6 p-4 rounded bg-[#FAF8F5] border border-[#CBD5E1] text-xs text-[#475569] flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <Lock className="w-4 h-4 text-[#C59B27] shrink-0" />
+            <span>
+              <strong className="text-[#0B1528]">Client Authentication Required:</strong> You must be signed in with a corporate account to submit an inquiry.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push(`/auth/login?callbackUrl=${encodeURIComponent("/contact")}&required=1`)}
+            className="px-3 py-1.5 rounded bg-[#0B1528] hover:bg-[#16243B] text-white text-xs font-semibold shrink-0 transition-colors"
+          >
+            Sign In &rarr;
+          </button>
+        </div>
+      )}
 
       {errorMessage && (
         <div className="mb-6 p-4 rounded bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-3">

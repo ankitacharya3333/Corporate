@@ -1,15 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { customerRegisterSchema, CustomerRegisterData } from "@/lib/validations";
-import { UserPlus, Loader2, CheckCircle2, Shield, AlertCircle } from "lucide-react";
+import { UserPlus, Loader2, CheckCircle2, Shield, AlertCircle, Info } from "lucide-react";
 
-export default function CustomerRegisterPage() {
+function CustomerRegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || searchParams.get("from") || "/";
+
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -49,7 +52,7 @@ export default function CustomerRegisterPage() {
 
       setSuccess(true);
       setTimeout(() => {
-        router.push("/");
+        router.push(callbackUrl);
         router.refresh();
       }, 1500);
     } catch (err: any) {
@@ -70,6 +73,15 @@ export default function CustomerRegisterPage() {
       <p className="text-xs text-slate-400 mb-6">
         Create an authorized organization profile to collaborate on architecture blueprints and review SOWs.
       </p>
+
+      {callbackUrl !== "/" && (
+        <div className="mb-5 p-3.5 rounded bg-[#16243B] border border-[#C59B27]/50 text-xs text-slate-200 flex items-start gap-2.5">
+          <Info className="w-4 h-4 text-[#C59B27] shrink-0 mt-0.5" />
+          <div>
+            Creating an account will immediately authenticate your session and return you to your consultation or inquiry request.
+          </div>
+        </div>
+      )}
 
       {errorMessage && (
         <div className="mb-4 p-3 rounded bg-red-950/70 border border-red-800 text-xs text-red-200 flex items-center gap-2">
@@ -213,12 +225,23 @@ export default function CustomerRegisterPage() {
 
           <div className="pt-4 text-center text-xs text-slate-400 border-t border-[#1E3352]">
             Already hold active credentials?{" "}
-            <Link href="/auth/login" className="text-[#C59B27] font-semibold hover:underline">
+            <Link
+              href={callbackUrl ? `/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/auth/login"}
+              className="text-[#C59B27] font-semibold hover:underline"
+            >
               Access sign in
             </Link>
           </div>
         </form>
       )}
     </div>
+  );
+}
+
+export default function CustomerRegisterPage() {
+  return (
+    <Suspense fallback={<div className="text-white text-xs">Loading onboarding enclave...</div>}>
+      <CustomerRegisterForm />
+    </Suspense>
   );
 }
